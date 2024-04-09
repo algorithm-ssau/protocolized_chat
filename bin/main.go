@@ -9,5 +9,4 @@ import (
 func main() {
 	defer fmt.Println(runtime.NumGoroutine())
 	ChatServer()
-
 }

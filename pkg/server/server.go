@@ -152,10 +152,10 @@ func handleConn(conn net.Conn) {
 	}()
 
 welcomeuser:
-	for {
+	for i := 0; i < 2; i++ {
 		select {
 		case messages <- fmt.Sprintf(cfg.WelcomeMsgFmt, client.name):
-
+			break
 		case <-done:
 			break welcomeuser
 		}
@@ -167,12 +167,12 @@ welcomeuser:
 	}()
 
 sendclientinfo:
-	for {
+	for i := 0; i < 2; i++ {
 		select {
 		case client.c <- fmt.Sprintf("YOU ARE: %s", client.name):
-
+			break
 		case entering <- client:
-
+			break
 		case <-done:
 			break sendclientinfo
 		}
@@ -233,7 +233,6 @@ func announceAllClients(clients map[client]bool) string {
 		default:
 			currentClients.WriteString(client.name)
 			currentClients.WriteByte('\n')
-
 		}
 
 	}

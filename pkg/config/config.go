@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	LogFilePath = "/Users/dmitriymamykin/Desktop/protocolized_chat/pkg/log/logs/log.txt"
+	LogFilePath = "/Users/dmitriymamykin/Desktop/protocolized_chat/pkg/log/logs/server.log"
 
 	SessionStartedMsg = "SESSION STARTED"
 	SessionCloseddMsg = "SESSION CLOSED"
