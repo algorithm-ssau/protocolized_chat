@@ -156,7 +156,6 @@ func handleConn(conn net.Conn) {
 
 	signal = welcome(client)
 	<-signal
-	fmt.Println(111)
 
 	// Defers the ticker stop and closing actions of the client
 	defer func() {
@@ -171,8 +170,6 @@ func handleConn(conn net.Conn) {
 
 	signal = sendClientInfo(client)
 	<-signal
-
-	fmt.Println(222)
 
 	// Starts reading messages from a client
 	go checkClientMessages(client, conn, messageSent)
