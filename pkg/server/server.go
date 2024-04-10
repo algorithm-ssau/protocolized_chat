@@ -20,6 +20,15 @@ var (
 	done              chan struct{}
 )
 
+type CustomTicker struct {
+	ticker          *time.Ticker
+	msgTimeoutInMin time.Duration
+}
+
+func NewCustomTicker(timeoutInMin time.Duration) *CustomTicker {
+	return &CustomTicker{ticker: time.NewTicker(timeoutInMin * time.Minute), msgTimeoutInMin: timeoutInMin}
+}
+
 // init makes package's preparation
 func init() {
 	cl = *logpkg.GetLogger()
@@ -63,20 +72,18 @@ func ChatServer() {
 }
 
 // broadcaster is a monitor functions that handles all the actions in the clients' poll such as:
-//
-//	client entered
-//	client left
-//	message broadcasting
+// - client entered
+// - client left
+// - message broadcasting
 func broadcaster() {
 	const (
 		serverlTimeoutInMinutes = 10
-
-		sendSleepTimeInMillis = 50
+		sendSleepTimeInMillis   = 50
 	)
 
 	var (
 		clients = make(map[client]bool)
-		ticker  = time.NewTicker(3500 * time.Minute)
+		ticker  = time.NewTicker(serverlTimeoutInMinutes * time.Minute)
 	)
 
 	cl.Println(cfg.LogSplitter)
@@ -95,7 +102,7 @@ outer:
 		select {
 
 		case newClient := <-entering:
-			newClient.c <- announceAllClients(clients)
+			newClient.c <- getClientsList(clients)
 			clients[*newClient] = true
 
 		case leftClient := <-leaving:
@@ -136,88 +143,132 @@ func handleConn(conn net.Conn) {
 	)
 
 	var (
+		ct          = NewCustomTicker(msgTimeoutInMin)
+		messageSent = make(chan struct{})
+
 		client = NewClient(conn)
 
-		ticker      = time.NewTicker(msgTimeoutInMin * time.Minute)
-		messageSent = make(chan struct{})
+		signal <-chan struct{}
 	)
 
 	// Sets a client's name
 	client.setName()
 
+	signal = welcome(client)
+	<-signal
+	fmt.Println(111)
+
 	// Defers the ticker stop and closing actions of the client
 	defer func() {
-		ticker.Stop()
+		ct.ticker.Stop()
 		close(messageSent)
 	}()
 
-welcomeuser:
-	for i := 0; i < 2; i++ {
-		select {
-		case messages <- fmt.Sprintf(cfg.WelcomeMsgFmt, client.name):
-			break
-		case <-done:
-			break welcomeuser
-		}
-	}
-
 	// Starts reading messages from the clients' pool
 	go func() {
-		client.getChatMessages()
+		client.dumpChatMessages()
 	}()
 
-sendclientinfo:
-	for i := 0; i < 2; i++ {
-		select {
-		case client.c <- fmt.Sprintf("YOU ARE: %s", client.name):
-			break
-		case entering <- client:
-			break
-		case <-done:
-			break sendclientinfo
-		}
-	}
+	signal = sendClientInfo(client)
+	<-signal
+
+	fmt.Println(222)
 
 	// Starts reading messages from a client
-	go func() {
-		scanner := bufio.NewScanner(conn)
+	go checkClientMessages(client, conn, messageSent)
 
-	clientmsgcheck:
-		for scanner.Scan() {
-			select {
-
-			case messages <- fmt.Sprintf("%s: %s", client.name, scanner.Text()):
-
-			case messageSent <- struct{}{}:
-
-			case <-done:
-				break clientmsgcheck
-			}
-		}
-	}()
-
-poolmsgscheck:
-	for {
-		select {
-		case <-ticker.C:
-			break poolmsgscheck
-
-		case <-messageSent:
-			ticker.Reset(msgTimeoutInMin * time.Minute)
-
-		case <-done:
-			break poolmsgscheck
-		}
-	}
-	ticker.Stop()
+	checkPoolMessages(ct, messageSent)
+	ct.ticker.Stop()
 
 	messages <- fmt.Sprintf(cfg.GoodbyeMsgFmt, client.name)
 
 	leaving <- client
 }
 
-// announceAllClients puts all the usernames into a buffer created and returns its string representation
-func announceAllClients(clients map[client]bool) string {
+func welcome(client *client) <-chan struct{} {
+
+	var (
+		innerDone      = make(chan struct{})
+		messagesCopied = messages
+	)
+
+	go func() {
+	welcomeuser:
+		for i := 0; i < 1; i++ {
+			select {
+			case messagesCopied <- fmt.Sprintf(cfg.WelcomeMsgFmt, client.name):
+				messagesCopied = nil
+				break
+			case <-innerDone:
+				break welcomeuser
+			}
+		}
+
+		close(innerDone)
+	}()
+
+	return innerDone
+}
+
+func sendClientInfo(client *client) <-chan struct{} {
+
+	var (
+		innerDone        = make(chan struct{})
+		clientChanCopied = client.c
+		enteringCopied   = entering
+	)
+
+	go func() {
+		for i := 0; i < 2; i++ {
+			select {
+			case clientChanCopied <- fmt.Sprintf("YOU ARE: %s", client.name):
+				clientChanCopied = nil
+
+			case enteringCopied <- client:
+				enteringCopied = nil
+				close(innerDone)
+
+			case <-innerDone:
+				return
+			}
+		}
+	}()
+
+	return innerDone
+}
+
+func checkClientMessages(client *client, conn net.Conn, messageSent chan struct{}) {
+	scanner := bufio.NewScanner(conn)
+
+	for scanner.Scan() {
+		select {
+
+		case messages <- fmt.Sprintf("%s: %s", client.name, scanner.Text()):
+		case messageSent <- struct{}{}:
+
+		case <-done:
+			return
+		}
+	}
+}
+
+func checkPoolMessages(ct *CustomTicker, messageSent chan struct{}) {
+	for {
+		select {
+		case <-ct.ticker.C:
+			return
+
+		case <-messageSent:
+			ct.ticker.Reset(ct.msgTimeoutInMin * time.Minute)
+
+		case <-done:
+			return
+		}
+	}
+}
+
+// getClientsList puts all the usernames into a buffer created and returns its string representation
+func getClientsList(clients map[client]bool) string {
 	var (
 		currentClients bytes.Buffer
 	)

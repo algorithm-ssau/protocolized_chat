@@ -7,8 +7,7 @@ import (
 )
 
 const (
-	clientBufferSize = 16
-	nameRequestMsg   = "ENTER YOUR NAME: "
+	nameRequestMsg = "ENTER YOUR NAME: "
 )
 
 type client struct {
@@ -44,6 +43,7 @@ func (client *client) setName() {
 
 				default:
 					client.name = scanner.Text()
+					fmt.Println(client.name)
 					return
 				}
 			} else if err := scanner.Err(); err != nil {
@@ -55,8 +55,8 @@ func (client *client) setName() {
 
 }
 
-// getChatMessages fetches the message from a client's pool and prints it in the client side
-func (client *client) getChatMessages() {
+// dumpChatMessages fetches the message from a client's pool and prints it in the client side
+func (client *client) dumpChatMessages() {
 	for msg := range client.c {
 		select {
 		case <-done:
@@ -70,8 +70,11 @@ func (client *client) getChatMessages() {
 	}
 }
 
-// Closes the client's resourses such as conn and c
+// Closes the client's resourses:
+// - conn
+// - c
 func (client *client) Close() {
-	client.conn.Close()
 	close(client.c)
+	client.conn.Close()
+
 }
