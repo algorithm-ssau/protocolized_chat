@@ -12,23 +12,6 @@ import (
 	logpkg "protocolized_chat/pkg/log"
 )
 
-var (
-	cl logpkg.CustomLogger
-
-	entering, leaving chan *client
-	messages          chan string
-	done              chan struct{}
-)
-
-type CustomTicker struct {
-	ticker          *time.Ticker
-	msgTimeoutInMin time.Duration
-}
-
-func NewCustomTicker(timeoutInMin time.Duration) *CustomTicker {
-	return &CustomTicker{ticker: time.NewTicker(timeoutInMin * time.Minute), msgTimeoutInMin: timeoutInMin}
-}
-
 // init makes package's preparation
 func init() {
 	cl = *logpkg.GetLogger()
@@ -95,6 +78,10 @@ func broadcaster() {
 		if err := cl.Close(); err != nil {
 			panic(err)
 		}
+
+		cl.Println(cfg.SessionCloseddMsg)
+		cl.Println(cfg.LogSplitter)
+		cl.Println()
 	}()
 
 outer:
@@ -131,9 +118,6 @@ outer:
 
 	}
 
-	cl.Println(cfg.SessionCloseddMsg)
-	cl.Println(cfg.LogSplitter)
-	cl.Println()
 }
 
 // handleConn serves all the client side work
