@@ -117,7 +117,6 @@ outer:
 		}
 
 	}
-
 }
 
 // handleConn serves all the client side work
@@ -180,7 +179,7 @@ func welcome(client *client) <-chan struct{} {
 			case messagesCopied <- fmt.Sprintf(cfg.WelcomeMsgFmt, client.name):
 				messagesCopied = nil
 				break
-			case <-innerDone:
+			case <-done:
 				break welcomeuser
 			}
 		}
@@ -209,7 +208,7 @@ func sendClientInfo(client *client) <-chan struct{} {
 				enteringCopied = nil
 				close(innerDone)
 
-			case <-innerDone:
+			case <-done:
 				return
 			}
 		}
