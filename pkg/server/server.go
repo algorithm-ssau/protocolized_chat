@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -14,6 +15,8 @@ import (
 
 // init makes package's preparation
 func init() {
+	http.Handle("/", http.FileServer(http.Dir("frontend")))
+
 	cl = *logpkg.GetLogger()
 
 	entering = make(chan *client)
